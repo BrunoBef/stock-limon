@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Control de Stock por Pasillos - Mayorista LIMON</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        body { background-color: #0f172a; color: #f8fafc; padding-bottom: 40px; }
+        header { background-color: #1e293b; border-bottom: 1px solid #eab308; padding: 15px; position: sticky; top: 0; z-index: 50; display: flex; justify-content: space-between; align-items: center; }
+        .logo { display: flex; align-items: center; gap: 10px; }
+        .logo h1 { font-size: 1.2rem; color: #facc15; }
+        .logo p { font-size: 0.75rem; color: #94a3b8; }
+        .btn-bot { background-color: #eab308; color: #0f172a; border: none; padding: 8px 14px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 0.85rem; }
+        main { max-width: 950px; margin: 20px auto; padding: 0 15px; }
+        .grid-metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px; margin-bottom: 20px; }
+        .card { background-color: #1e293b; padding: 12px; border-radius: 12px; border: 1px solid #334155; }
+        .card p { font-size: 0.7rem; color: #94a3b8; text-transform: uppercase; font-weight: bold; }
+        .card .num { font-size: 1.5rem; font-weight: 900; margin-top: 4px; }
+        .num-total { color: #facc15; }
+        .num-units { color: #34d399; }
+        .num-out { color: #f43f5e; }
+        .num-low { color: #fbbf24; }
+        .drawer { background-color: #1e293b; border: 1px solid #facc15; border-radius: 12px; padding: 15px; margin-bottom: 20px; display: none; }
+        .drawer.active { display: block; }
+        .drawer-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #334155; padding-bottom: 8px; }
+        .chat-box { height: 150px; overflow-y: auto; background-color: #020617; padding: 10px; border-radius: 8px; margin: 10px 0; font-family: monospace; font-size: 0.8rem; }
+        .chat-input { display: flex; gap: 8px; }
+        .chat-input input { flex: 1; background-color: #0f172a; border: 1px solid #334155; color: white; padding: 8px; border-radius: 6px; }
+        .chat-input button { background-color: #eab308; color: #0f172a; border: none; padding: 8px 12px; border-radius: 6px; font-weight: bold; }
+        .controls { display: flex; flex-wrap: wrap; gap: 10px; justify-content: space-between; margin-bottom: 15px; }
+        .search-box { flex: 1; min-width: 180px; background-color: #1e293b; border: 1px solid #334155; color: white; padding: 10px; border-radius: 8px; }
+        .filter-select { background-color: #1e293b; border: 1px solid #334155; color: white; padding: 10px; border-radius: 8px; }
+        .btn-add { background-color: #0284c7; color: white; border: none; padding: 10px 14px; border-radius: 8px; font-weight: bold; cursor: pointer; }
+        .btn-export { background-color: #059669; color: white; border: none; padding: 10px 14px; border-radius: 8px; font-weight: bold; cursor: pointer; }
+        .table-container { background-color: #1e293b; border: 1px solid #334155; border-radius: 12px; overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; text-align: left; font-size: 0.85rem; }
+        th { background-color: #0f172a; color: #94a3b8; padding: 10px; text-transform: uppercase; font-size: 0.7rem; border-bottom: 1px solid #334155; }
+        td { padding: 12px 10px; border-bottom: 1px solid #334155; }
+        .badge { padding: 3px 6px; border-radius: 4px; font-size: 0.7rem; font-weight: bold; }
+        .badge-ok { background-color: rgba(52, 211, 153, 0.2); color: #34d399; }
+        .badge-low { background-color: rgba(251, 191, 36, 0.2); color: #fbbf24; }
+        .badge-out { background-color: rgba(244, 63, 94, 0.2); color: #f43f5e; }
+        .btn-action { width: 28px; height: 28px; border-radius: 6px; border: none; font-weight: bold; font-size: 1.1rem; cursor: pointer; color: white; }
+        .btn-plus { background-color: #059669; }
+        .btn-minus { background-color: #e11d48; }
+        .btn-date { background-color: #334155; color: #facc15; border: none; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; cursor: pointer; margin-top: 4px; }
+        .actions-cell { display: flex; gap: 6px; justify-content: center; }
+        .venc-tag { font-size: 0.75rem; color: #fbbf24; font-weight: bold; }
+
+        /* Modal Formulario */
+        .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: none; justify-content: center; align-items: center; z-index: 100; padding: 15px; }
+        .modal.active { display: flex; }
+        .modal-content { background: #1e293b; border: 1px solid #facc15; border-radius: 16px; padding: 20px; width: 100%; max-width: 450px; }
+        .modal-content h3 { color: #facc15; margin-bottom: 12px; font-size: 1.1rem; }
+        .form-group { margin-bottom: 10px; }
+        .form-group label { display: block; font-size: 0.75rem; color: #94a3b8; margin-bottom: 4px; font-weight: bold; }
+        .form-group input, .form-group select { width: 100%; background: #0f172a; border: 1px solid #334155; color: white; padding: 8px 10px; border-radius: 8px; font-size: 0.85rem; }
+        .modal-btns { display: flex; justify-content: flex-end; gap: 8px; margin-top: 15px; }
+        .btn-cancel { background: #475569; color: white; border: none; padding: 8px 14px; border-radius: 8px; font-weight: bold; cursor: pointer; }
+        .btn-save { background: #eab308; color: #0f172a; border: none; padding: 8px 14px; border-radius: 8px; font-weight: bold; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="logo">
+            <span style="font-size: 1.8rem;">🍋</span>
+            <div>
+                <h1>Control de Stock por Pasillos</h1>
+                <p>Mayorista LIMON • Salón y Depósito</p>
+            </div>
+        </div>
+        <button onclick="toggleBot()" class="btn-bot">💬 Bot Stock</button>
+    </header>
+
+    <main>
+        <div class="grid-metrics">
+            <div class="card">
+                <p>Total Productos</p>
+                <div id="total-prod" class="num num-total">0</div>
+            </div>
+            <div class="card">
+                <p>Total Bultos</p>
+                <div id="total-units" class="num num-units">0</div>
+            </div>
+            <div class="card">
+                <p>Agotados (0)</p>
+                <div id="total-out" class="num num-out">0</div>
+            </div>
+            <div class="card">
+                <p>Bajo Stock</p>
+                <div id="total-low" class="num num-low">0</div>
+            </div>
+        </div>
+
+        <div id="bot-drawer" class="drawer">
+            <div class="drawer-header">
+                <h3 style="color: #facc15;">🤖 Bot Comandos Frecuentes</h3>
+                <button onclick="toggleBot()" style="background:none; border:none; color:#94a3b8; cursor:pointer;">✖</button>
+            </div>
+            <div style="font-size: 0.75rem; color: #cbd5e1; margin-top: 8px;">
+                • <b>SUMAR ID CANTIDAD</b> (Ej: <span style="color:#34d399">SUMAR PLAYADITO 10</span>)<br>
+                • <b>RESTAR ID CANTIDAD</b> (Ej: <span style="color:#f43f5e">RESTAR COCA175 2</span>)<br>
+                • <b>STOCK PALABRA</b> (Ej: <span style="color:#fbbf24">STOCK MONSTER</span>)
+            </div>
+            <div id="chat-box" class="chat-box">
+                <div style="color: #facc15;">🤖 Bot: ¡Boleta del 08/10 ingresada con éxito! ¿Qué movimiento querés registrar?</div>
+            </div>
+            <div class="chat-input">
+                <input id="bot-input" type="text" placeholder="Escribí un comando...">
+                <button onclick="sendBotMsg()">Enviar</button>
+            </div>
+        </div>
+
+        <div class="controls">
+            <input id="search-input" oninput="renderTable()" type="text" placeholder="🔍 Buscar producto o ID..." class="search-box">
+            <select id="cat-filter" onchange="renderTable()" class="filter-select">
+                <option value="ALL">Todos los Pasillos</option>
+                <option value="Pasillo 1 - Limpieza">Pasillo 1 - Limpieza</option>
+                <option value="Pasillo 2 - Almacén">Pasillo 2 - Almacén (Yerbas, Krachito, etc.)</option>
+                <option value="Pasillo 3 - Bebidas">Pasillo 3 - Bebidas</option>
+                <option value="Pasillo 4 - Cerveza y Vino">Pasillo 4 - Cerveza y Vino</option>
+            </select>
+            <button onclick="openModal()" class="btn-add">➕ Agregar Producto</button>
+            <button onclick="exportExcel()" class="btn-export">📗 Exportar a Excel</button>
+        </div>
+
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID / Producto</th>
+                        <th>Pasillo / Sector</th>
+                        <th>Vencimiento</th>
+                        <th style="text-align: center;">Bultos</th>
+                        <th style="text-align: center;">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody id="inventory-table"></tbody>
+            </table>
+        </div>
+    </main>
+
+    <!-- Modal Formulario para Nuevo Producto -->
+    <div id="add-modal" class="modal">
+        <div class="modal-content">
+            <h3>➕ Nuevo Producto - Por Pasillo</h3>
+            <div class="form-group">
+                <label>ID / CÓDIGO (Ej: KRACHITO1):</label>
+                <input id="new-id" type="text" placeholder="Ingrese ID único">
+            </div>
+            <div class="form-group">
+                <label>NOMBRE DEL PRODUCTO:</label>
+                <input id="new-name" type="text" placeholder="Ej: KRACHITO PAPAS FRITAS X 100G">
+            </div>
+            <div class="form-group">
+                <label>PASILLO / SECTOR:</label>
+                <select id="new-cat">
+                    <option value="Pasillo 1 - Limpieza">Pasillo 1 - Limpieza</option>
+                    <option value="Pasillo 2 - Almacén">Pasillo 2 - Almacén (Yerbas, Krachito, etc.)</option>
+                    <option value="Pasillo 3 - Bebidas">Pasillo 3 - Bebidas</option>
+                    <option value="Pasillo 4 - Cerveza y Vino">Pasillo 4 - Cerveza y Vino</option>
+                </select>
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <div class="form-group" style="flex:1;">
+                    <label>BULTOS INICIALES:</label>
+                    <input id="new-stock" type="number" value="0" min="0">
+                </div>
+                <div class="form-group" style="flex:1;">
+                    <label>MÍNIMO RECOMENDADO:</label>
+                    <input id="new-min" type="number" value="5" min="1">
+                </div>
+            </div>
+            <div class="form-group">
+                <label>FECHA VENCIMIENTO (Opcional):</label>
+                <input id="new-venc" type="text" placeholder="Ej: 25/12/26">
+            </div>
+            <div class="modal-btns">
+                <button onclick="closeModal()" class="btn-cancel">Cancelar</button>
+                <button onclick="saveNewProduct()" class="btn-save">Guardar Producto</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const INITIAL_STOCK = [
+            {"id": "AMSTEL473", "nombre": "AMSTEL LATA X 473CC X 24U", "categoria": "Pasillo 4 - Cerveza y Vino", "stock": 20, "min": 5, "venc": "01/02/27"},
+            {"id": "ANDESIPA", "nombre": "ANDES IPA X 473CC X 24U", "categoria": "Pasillo 4 - Cerveza y Vino", "stock": 20, "min": 5, "venc": "18/02/27"},
+            {"id": "ANDESROJA", "nombre": "ANDES ROJA X 473CC X 24U", "categoria": "Pasillo 4 - Cerveza y Vino", "stock": 10, "min": 5, "venc": "12/03/27"},
+            {"id": "BUD410", "nombre": "BUDWEISER LATA X 410CC X 24U", "categoria": "Pasillo 4 - Cerveza y Vino", "stock": 20, "min": 5, "venc": "17/03/27"},
+            {"id": "COCA175", "nombre": "COCA COLA X 1.75L X 8U", "categoria": "Pasillo 3 - Bebidas", "stock": 75, "min": 10, "venc": "25/11/26"},
+            {"id": "COCA225", "nombre": "COCA COLA X 2.25L X 8U", "categoria": "Pasillo 3 - Bebidas", "stock": 120, "min": 15, "venc": "18/12/26"},
+            {"id": "CUNNCOLA", "nombre": "CUNNINGTON COLA X 2250CC X 6U", "categoria": "Pasillo 3 - Bebidas", "stock": 20, "min": 5, "venc": "22/02/27"},
+            {"id": "CUNNCOLALIGHT", "nombre": "CUNNINGTON COLA LIGHT X 2250CC X 6U", "categoria": "Pasillo 3 - Bebidas", "stock": 20, "min": 5, "venc": "01/03/27"},
+            {"id": "CUNNPOMELO", "nombre": "CUNNINGTON POMELO X 2250CC X 6U", "categoria": "Pasillo 3 - Bebidas", "stock": 20, "min": 5, "venc": "26/02/27"},
+            {"id": "CUNNTONICA", "nombre": "CUNNINGTON TONICA X 2250CC X 6U", "categoria": "Pasillo 3 - Bebidas", "stock": 20, "min": 5, "venc": "03/03/27"},
+            {"id": "GATORADEFRUTA", "nombre": "GATORADE FRUTAS TROPICALES X 500CC X 6U", "categoria": "Pasillo 3 - Bebidas", "stock": 45, "min": 10, "venc": "11/01/27"},
+            {"id": "HEINLATA473", "nombre": "HEINEKEN LATA X 473CC X 24U", "categoria": "Pasillo 4 - Cerveza y Vino", "stock": 20, "min": 5, "venc": "22/05/27"},
+            {"id": "ISENBECK473", "nombre": "ISENBECK LATA X 473CC X 24U", "categoria": "Pasillo 4 - Cerveza y Vino", "stock": 20, "min": 5, "venc": "13/05/27"},
+            {"id": "LATON361", "nombre": "LATON 361 X 710CC X 24U", "categoria": "Pasillo 4 - Cerveza y Vino", "stock": 10, "min": 5, "venc": "07/06/27"},
+            {"id": "MONSTDURAZNO", "nombre": "MONSTER DURAZNO PEACHY KEEN X 473CC X 6U", "categoria": "Pasillo 3 - Bebidas", "stock": 20, "min": 5, "venc": "25/02/28"},
+            {"id": "MONSTNEGRO", "nombre": "MONSTER NEGRO X 500CC X 6U", "categoria": "Pasillo 3 - Bebidas", "stock": 45, "min": 10, "venc": "10/07/28"},
+            {"id": "MONSTSINAZUCAR", "nombre": "MONSTER NEGRO SIN AZUCAR X 500CC X 6U", "categoria": "Pasillo 3 - Bebidas", "stock": 20, "min": 5, "venc": "19/04/28"},
+            {"id": "MONSTPIPE", "nombre": "MONSTER PIPELINE PUNCH X 500CC X 6U", "categoria": "Pasillo 3 - Bebidas", "stock": 45, "min": 10, "venc": "22/02/28"},
+            {"id": "NORTONCOSECHA", "nombre": "NORTON COSECHA TARDIA X 700CC X 6U", "categoria": "Pasillo 4 - Cerveza y Vino", "stock": 30, "min": 5, "venc": ""},
+            {"id": "PEPSI2L", "nombre": "PEPSI X 2L X 8U", "categoria": "Pasillo 3 - Bebidas", "stock": 15, "min": 5, "venc": "14/01/27"},
+            {"id": "PLAYADITO", "nombre": "PLAYADITO X 500GR X 10U - YERBAS", "categoria": "Pasillo 2 - Almacén", "stock": 40, "min": 10, "venc": "28/09/28"},
+            {"id": "POWERADEMANZ", "nombre": "POWERADE MANZANA X 500CC X 6U", "categoria": "Pasillo 3 - Bebidas", "stock": 45, "min": 10, "venc": "24/07/26"},
+            {"id": "SAINTFELICIEN", "nombre": "SAINT FELICIEN MALBEC X 750CC X 6U", "categoria": "Pasillo 4 - Cerveza y Vino", "stock": 10, "min": 5, "venc": ""},
+            {"id": "SEVEN2L", "nombre": "SEVEN X 2L X 8U", "categoria": "Pasillo 3 - Bebidas", "stock": 60, "min": 10, "venc": "18/12/26"},
+            {"id": "SMIRNGREEN", "nombre": "SMIRNOFF LATA GREEN APPLE X 473CC X 24U", "categoria": "Pasillo 4 - Cerveza y Vino", "stock": 20, "min": 5, "venc": "01/08/27"},
+            {"id": "SMIRNBERRIES", "nombre": "SMIRNOFF LATA RED BERRIES X 473CC X 24U", "categoria": "Pasillo 4 - Cerveza y Vino", "stock": 40, "min": 10, "venc": "01/09/27"}
+        ];
+
+        let stockData = JSON.parse(localStorage.getItem('limon_stock_pasillos_v3')) || INITIAL_STOCK;
+
+        function saveData() {
+            localStorage.setItem('limon_stock_pasillos_v3', JSON.stringify(stockData));
+            updateMetrics();
+        }
+
+        function updateMetrics() {
+            document.getElementById('total-prod').innerText = stockData.length;
+            document.getElementById('total-units').innerText = stockData.reduce((acc, p) => acc + p.stock, 0);
+            document.getElementById('total-out').innerText = stockData.filter(p => p.stock === 0).length;
+            document.getElementById('total-low').innerText = stockData.filter(p => p.stock > 0 && p.stock <= p.min).length;
+        }
+
+        function renderTable() {
+            const search = document.getElementById('search-input').value.toLowerCase();
+            const cat = document.getElementById('cat-filter').value;
+            const tbody = document.getElementById('inventory-table');
+            tbody.innerHTML = '';
+
+            const filtered = stockData.filter(p => {
+                const matchSearch = p.nombre.toLowerCase().includes(search) || p.id.toLowerCase().includes(search);
+                const matchCat = cat === 'ALL' || p.categoria === cat;
+                return matchSearch && matchCat;
+            });
+
+            filtered.forEach(p => {
+                let badge = '<span class="badge badge-ok">OK</span>';
+                if(p.stock === 0) {
+                    badge = '<span class="badge badge-out">AGOTADO</span>';
+                } else if(p.stock <= p.min) {
+                    badge = '<span class="badge badge-low">BAJO</span>';
+                }
+
+                const vencDisplay = (p.venc && p.venc !== "31/12/50") ? `<span class="venc-tag">📅 ${p.venc}</span>` : `<span style="color:#64748b; font-size:0.75rem;">Sin fecha</span>`;
+
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>
+                        <div style="font-weight:bold; color:#f8fafc;">${p.nombre}</div>
+                        <div style="font-size:0.75rem; color:#facc15; font-family:monospace;">ID: ${p.id}</div>
+                    </td>
+                    <td style="font-size:0.75rem; color:#94a3b8;">${p.categoria}</td>
+                    <td>
+                        ${vencDisplay}<br>
+                        <button onclick="editVenc('${p.id}')" class="btn-date">✎ Editar</button>
+                    </td>
+                    <td style="text-align:center;">
+                        <span style="font-size:1.1rem; font-weight:bold; ${p.stock === 0 ? 'color:#f43f5e;' : 'color:#f8fafc;'}">${p.stock}</span>
+                        <div style="margin-top:2px;">${badge}</div>
+                    </td>
+                    <td style="text-align:center;">
+                        <div class="actions-cell">
+                            <button onclick="changeStock('${p.id}', -1)" class="btn-action btn-minus">-</button>
+                            <button onclick="changeStock('${p.id}', 1)" class="btn-action btn-plus">+</button>
+                        </div>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+            updateMetrics();
+        }
+
+        function openModal() {
+            document.getElementById('add-modal').classList.add('active');
+        }
+
+        function closeModal() {
+            document.getElementById('add-modal').classList.remove('active');
+            document.getElementById('new-id').value = '';
+            document.getElementById('new-name').value = '';
+            document.getElementById('new-stock').value = '0';
+            document.getElementById('new-min').value = '5';
+            document.getElementById('new-venc').value = '';
+        }
+
+        function saveNewProduct() {
+            const id = document.getElementById('new-id').value.trim().toUpperCase();
+            const nombre = document.getElementById('new-name').value.trim().toUpperCase();
+            const categoria = document.getElementById('new-cat').value;
+            const stock = parseInt(document.getElementById('new-stock').value) || 0;
+            const min = parseInt(document.getElementById('new-min').value) || 5;
+            const venc = document.getElementById('new-venc').value.trim();
+
+            if(!id || !nombre) {
+                alert('Por favor complete el ID y el Nombre del Producto.');
+                return;
+            }
+
+            if(stockData.some(p => p.id === id)) {
+                alert('El ID ingresado ya existe. Por favor use uno diferente.');
+                return;
+            }
+
+            stockData.push({ id, nombre, categoria, stock, min, venc });
+            saveData();
+            renderTable();
+            closeModal();
+        }
+
+        function editVenc(id) {
+            const prod = stockData.find(p => p.id === id);
+            if(prod) {
+                const newDate = prompt(`Ingresá la fecha de vencimiento para ${prod.nombre}:`, prod.venc || '');
+                if(newDate !== null) {
+                    prod.venc = newDate.trim();
+                    saveData();
+                    renderTable();
+                }
+            }
+        }
+
+        function changeStock(id, qty) {
+            const prod = stockData.find(p => p.id === id);
+            if(prod) {
+                prod.stock = Math.max(0, prod.stock + qty);
+                saveData();
+                renderTable();
+            }
+        }
+
+        function toggleBot() {
+            const drawer = document.getElementById('bot-drawer');
+            drawer.classList.toggle('active');
+        }
+
+        function sendBotMsg() {
+            const input = document.getElementById('bot-input');
+            const text = input.value.trim();
+            if(!text) return;
+
+            const chat = document.getElementById('chat-box');
+            chat.innerHTML += `<div style="color:#cbd5e1; text-align:right;">👤 ${text}</div>`;
+            input.value = '';
+
+            const parts = text.split(' ');
+            const action = parts[0].toUpperCase();
+            let response = "🤖 No entendí el comando. Usá SUMAR, RESTAR o STOCK.";
+
+            if(action === 'SUMAR' || action === 'RESTAR') {
+                const id = parts[1] ? parts[1].toUpperCase() : null;
+                const qty = parseInt(parts[2]);
+                const prod = stockData.find(p => p.id === id);
+
+                if(prod && !isNaN(qty)) {
+                    const diff = action === 'SUMAR' ? qty : -qty;
+                    prod.stock = Math.max(0, prod.stock + diff);
+                    saveData();
+                    renderTable();
+                    response = `🤖 ¡Listo! ${prod.nombre} ahora tiene ${prod.stock} bultos.`;
+                } else {
+                    response = `🤖 Error: Verificá el ID del producto y la cantidad.`;
+                }
+            } else if(action === 'STOCK') {
+                const query = parts.slice(1).join(' ').toLowerCase();
+                const matches = stockData.filter(p => p.nombre.toLowerCase().includes(query) || p.id.toLowerCase().includes(query));
+                if(matches.length > 0) {
+                    response = `🤖 Encontrados:<br>` + matches.map(m => `• ${m.nombre} (${m.id}): <b>${m.stock} bultos</b> en <i>${m.categoria}</i>`).join('<br>');
+                } else {
+                    response = `🤖 No encontré productos con "${query}".`;
+                }
+            }
+
+            chat.innerHTML += `<div style="color:#facc15;">🤖 ${response}</div>`;
+            chat.scrollTop = chat.scrollHeight;
+        }
+
+        function exportExcel() {
+            let tableHtml = `
+            <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+            <head>
+                <meta charset="utf-8">
+                <style>
+                    body { font-family: Arial, sans-serif; }
+                    th { background-color: #0f172a; color: #ffffff; font-weight: bold; text-align: left; padding: 8px; border: 1px solid #334155; }
+                    td { padding: 6px; border: 1px solid #cbd5e1; vertical-align: middle; }
+                    .ok { background-color: #d1fae5; color: #065f46; font-weight: bold; text-align: center; }
+                    .bajo { background-color: #fef3c7; color: #92400e; font-weight: bold; text-align: center; }
+                    .agotado { background-color: #ffe4e6; color: #9f1239; font-weight: bold; text-align: center; }
+                    .num { text-align: center; font-weight: bold; }
+                    .title { font-size: 16pt; font-weight: bold; color: #eab308; }
+                </style>
+            </head>
+            <body>
+                <div class="title">Autoservicio Mayorista LIMON - Control de Stock por Pasillos</div>
+                <p><b>Reporte Consolidado</b> - Fecha: ${new Date().toLocaleDateString('es-AR')}</p>
+                <br>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Producto</th>
+                            <th>Pasillo / Sector</th>
+                            <th>Vencimiento</th>
+                            <th>Bultos Actuales</th>
+                            <th>Mínimo Recomendado</th>
+                            <th>Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            stockData.forEach(p => {
+                let estadoClass = p.stock === 0 ? 'agotado' : (p.stock <= p.min ? 'bajo' : 'ok');
+                let estadoTexto = p.stock === 0 ? 'AGOTADO' : (p.stock <= p.min ? 'BAJO STOCK' : 'OK');
+                
+                tableHtml += `
+                    <tr>
+                        <td><b>${p.id}</b></td>
+                        <td>${p.nombre}</td>
+                        <td>${p.categoria}</td>
+                        <td style="text-align:center;">${(p.venc && p.venc !== "31/12/50") ? p.venc : '-'}</td>
+                        <td class="num">${p.stock}</td>
+                        <td class="num">${p.min}</td>
+                        <td class="${estadoClass}">${estadoTexto}</td>
+                    </tr>
+                `;
+            });
+
+            tableHtml += `
+                    </tbody>
+                </table>
+            </body>
+            </html>
+            `;
+
+            const blob = new Blob(['\ufeff' + tableHtml], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.setAttribute('href', url);
+            a.setAttribute('download', `Stock_Pasillos_LIMON_${new Date().toISOString().slice(0,10)}.xls`);
+            a.click();
+        }
+
+        renderTable();
+    </script>
+</body>
+</html>
